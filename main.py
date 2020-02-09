@@ -188,32 +188,31 @@ def get_company_info(url):
                 print('第{0}条数据被忽略，对应链接{1}'.format(total_num, url))
                 total_num += 1
                 return
-            d['GS year'] = wd.find_element_by_class_name('join-year').find_element_by_class_name('value').text + 'YEARS'
-            d['firm name'] = wd.find_element_by_class_name('company-info').find_element_by_class_name('title-text').text
-            quantity = wd.find_elements_by_class_name('transaction-detail-title')[1].text.split(' ')
+            d['GS year'] = wd.find_element_by_class_name('join-year').find_element_by_class_name('value').get_attribute('textContent').strip() + 'YEARS'
+            d['firm name'] = wd.find_element_by_class_name('company-info').find_element_by_class_name('title-text').get_attribute('textContent').strip()
+            quantity = wd.find_elements_by_class_name('transaction-detail-title')[1].get_attribute('textContent').strip().split(' ')
             d['transaction quantity'] = '' if len(quantity) == 1 else quantity[0]
-            d['transaction value'] = wd.find_elements_by_class_name('transaction-detail-content')[1].text
+            d['transaction value'] = wd.find_elements_by_class_name('transaction-detail-content')[1].get_attribute('textContent').strip()
 
             basicInfo = wd.find_element_by_class_name('company-basicInfo')
             for key, value in zip(
                     basicInfo.find_elements_by_class_name('field-title'),
                     basicInfo.find_elements_by_class_name('content-value')
             ):
-                text = key.text
+                text = key.get_attribute('textContent').strip()
                 if '(' in text:
                     text = text.split('(')[0]
-                d[text] = value.text
+                d[text] = value.get_attribute('textContent').strip()
             if 'infoList-mod-field' in wd.page_source:
                 fields = wd.find_elements_by_class_name('infoList-mod-field')
                 for field in fields:
-                    print('*' * 10)
-                    title = field.find_element_by_tag_name('h3').text
+                    title = field.find_element_by_tag_name('h3').get_attribute('textContent').strip()
                     print(title)
                     if title == 'Factory Information':
                         for item in field.find_elements_by_class_name('icbu-shop-table-col-item'):
                             key_value = item.find_elements_by_tag_name('span')
-                            key = key_value[0].text
-                            value = key_value[1].text
+                            key = key_value[0].get_attribute('textContent').strip()
+                            value = key_value[1].get_attribute('textContent').strip()
                             d[key] = value
                     elif title in mul2mul_judge:
                         if title + 'mul2mul' in mul2mul:
@@ -227,10 +226,8 @@ def get_company_info(url):
                                 d_temp[li] = ''
                             values = each.find_elements_by_class_name('next-table-cell-wrapper')
                             for key, value in zip(keys, values):
-                                print("\t" + value.text, end='')
-                                if key.text in lists:
-                                    d_temp[key.text] = value.text
-                            print()
+                                if key.get_attribute('textContent').strip() in lists:
+                                    d_temp[key.get_attribute('textContent').strip()] = value.get_attribute('textContent').strip()
                             d[title].append(d_temp)
             profile_url = url.split(".html")[0] + '/trustpass_profile.html'
             trade_url = url.split(".html")[0] + '/trade_capacity.html'
@@ -240,19 +237,19 @@ def get_company_info(url):
                 keys_ele = tab.find_elements_by_tag_name('dt')
                 values_ele = tab.find_elements_by_tag_name('dd')
                 for key_ele, value_ele in zip(keys_ele, values_ele):
-                    if key_ele.text in section2:
-                        d[key_ele.text] = value_ele.text
+                    if key_ele.get_attribute('textContent').strip() in section2:
+                        d[key_ele.get_attribute('textContent').strip()] = value_ele.get_attribute('textContent').strip()
                 for item in tab.find_elements_by_tag_name('tr'):
-                    if item.find_element_by_tag_name('th').text == 'Operational Address:':
-                        d['Operational Address:'] = item.find_element_by_tag_name('td').text
+                    if item.find_element_by_tag_name('th').get_attribute('textContent').strip() == 'Operational Address:':
+                        d['Operational Address:'] = item.find_element_by_tag_name('td').get_attribute('textContent').strip()
             wd.get(trade_url)
             if 'article' in wd.page_source:
                 table = wd.find_element_by_class_name('article').find_element_by_class_name('table')
                 keys_ele = table.find_elements_by_tag_name('th')
                 values_ele = table.find_elements_by_tag_name('td')
                 for key, value in zip(keys_ele, values_ele):
-                    if key.text in section2:
-                        d[key.text] = value.text
+                    if key.get_attribute('textContent').strip() in section2:
+                        d[key.get_attribute('textContent').strip()] = value.get_attribute('textContent').strip()
             break
         except Exception as e:
             if error_time >= 3:
