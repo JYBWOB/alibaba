@@ -7,13 +7,20 @@ d = {}
 url_list = []
 wd = webdriver.Chrome()
 
-isDebug = True
+isDebug = False
 debugUrl = 'https://gzmingtai.en.alibaba.com/company_profile.html?spm=a2700.galleryofferlist.0.0.7d4b6a3a4AYF71#top-nav-bar'
 
 total_num = 1
 
 # 起始位置
-start_num = 10000
+start_category = 0
+start_page = 1
+# 顺序：True
+# 逆序: False
+order = True
+
+category = -1
+cur_page = -1
 
 output_num = 1
 curRow = 1
@@ -62,13 +69,13 @@ single = [
     'Total Annual Revenue',
     'Main Markets',
     'Country / Region',
-    'Ownership',
+    'Ownership',  # TODO
     'Factory Size',
     'Factory Country/Region',
     'No. of Production Lines',
     'Contract Manufacturing',
     'Annual Output Value',
-    'Main Product(s)',
+    'Main Product(s)', # is Main Products ?
     'Total Annual Revenue:',
     'Date of Issue:',
     'Date of Expiry:',
@@ -155,13 +162,11 @@ def get_url_list():
 
 
 def spider(url):
-    global start_num
-    first_page = 1
-    if start_num > 0:
-        first_page = start_num / 32
-        start_num = -1
-    for pageNum in range(1, 101):
-        realUrl = url + '?page={0}'.format(pageNum)
+    global start_page
+    global cur_page
+    cur_start_page = start_page if start_page > 0 else 1
+    for cur_page in range(cur_start_page, 101):
+        realUrl = url + '?page={0}'.format(cur_page)
         wd.get(realUrl)
         wd.execute_script('window.scrollTo(0, document.body.scrollHeight)')
         time.sleep(1)
@@ -178,14 +183,16 @@ def spider(url):
 def get_company_info(url):
     global d
     global total_num
-    print('正在处理第{0}个数据'.format(total_num))
+    global category
+    global cur_page
+    print('正在处理第{0}类，第{1}页, 总第{2}个数据'.format(category, cur_page, total_num))
     initD()
     error_time = 0
     while True:
         try:
             wd.get(url)
             if not ('join-year' in wd.page_source):
-                print('第{0}条数据被忽略，对应链接{1}'.format(total_num, url))
+                print('第{0}类，第{1}页, 总第{2}个数据被忽略，对应链接{3}'.format(category, cur_page, total_num, url))
                 total_num += 1
                 return
             d['GS year'] = wd.find_element_by_class_name('join-year').find_element_by_class_name('value').get_attribute('textContent').strip() + 'YEARS'
@@ -207,7 +214,6 @@ def get_company_info(url):
                 fields = wd.find_elements_by_class_name('infoList-mod-field')
                 for field in fields:
                     title = field.find_element_by_tag_name('h3').get_attribute('textContent').strip()
-                    print(title)
                     if title == 'Factory Information':
                         for item in field.find_elements_by_class_name('icbu-shop-table-col-item'):
                             key_value = item.find_elements_by_tag_name('span')
@@ -232,16 +238,27 @@ def get_company_info(url):
             profile_url = url.split(".html")[0] + '/trustpass_profile.html'
             trade_url = url.split(".html")[0] + '/trade_capacity.html'
             wd.get(profile_url)
-            if len(wd.find_elements_by_class_name('table')) > 0:
-                tab = wd.find_element_by_class_name('table')
-                keys_ele = tab.find_elements_by_tag_name('dt')
-                values_ele = tab.find_elements_by_tag_name('dd')
-                for key_ele, value_ele in zip(keys_ele, values_ele):
-                    if key_ele.get_attribute('textContent').strip() in section2:
-                        d[key_ele.get_attribute('textContent').strip()] = value_ele.get_attribute('textContent').strip()
+            table = wd.find_elements_by_class_name('table')
+            if 'Registration No' not in wd.page_source:
+                print('第{0}类，第{1}页, 总第{2}个数据被忽略，对应链接{3}'.format(category, cur_page, total_num, url))
+                total_num += 1
+                return
+            if len(table) > 0:
+                tab = table[0]
+                flag = False
                 for item in tab.find_elements_by_tag_name('tr'):
-                    if item.find_element_by_tag_name('th').get_attribute('textContent').strip() == 'Operational Address:':
-                        d['Operational Address:'] = item.find_element_by_tag_name('td').get_attribute('textContent').strip()
+                    key = item.find_element_by_tag_name('th').get_attribute('textContent').strip()
+                    value = item.find_element_by_tag_name('td').get_attribute('textContent').strip()
+                    d[key] = value
+                    if key == 'Registration No.:':
+                        flag = True
+                if not flag:
+                    keys_ele = tab.find_elements_by_tag_name('dt')
+                    values_ele = tab.find_elements_by_tag_name('dd')
+                    for key_ele, value_ele in zip(keys_ele, values_ele):
+                        if key_ele.get_attribute('textContent').strip() in section2:
+                            d[key_ele.get_attribute('textContent').strip()] = value_ele.get_attribute('textContent').strip()
+                    
             wd.get(trade_url)
             if 'article' in wd.page_source:
                 table = wd.find_element_by_class_name('article').find_element_by_class_name('table')
@@ -253,7 +270,7 @@ def get_company_info(url):
             break
         except Exception as e:
             if error_time >= 3:
-                print('第{0}条数据被忽略，对应链接{1}'.format(total_num, url))
+                print('第{0}类，第{1}页, 总第{2}个数据被忽略，对应链接{3}'.format(category, cur_page, total_num, url))
                 if isDebug:
                     pprint(d)
                     exit(0)
@@ -286,6 +303,7 @@ def wirteD(d):
     global result
     global result_sheet
     global output_num
+    global category
     if curRow == maxRow:
         result.save('./' + '{0}.xlsx'.format(output_num))
         print('已将该部分数据写入文件{0}.xlsx'.format(output_num))
@@ -327,20 +345,26 @@ def wirteD(d):
 
 if __name__ == '__main__':
     wd.set_window_size(1000, 30000)
-    wd.implicitly_wait(5)
+    wd.implicitly_wait(4)
     if isDebug:
         get_company_info(debugUrl)
         exit(0)
     get_url_list()
-    not_do = start_num / 3200
-    start_num %= 3200
     
-    for i in range(1, len(url_list) + 1):
-        if not_do > 0:
-            not_do -= 1
-            continue
+    ran = []
+    if order:
+        ran = range(start_category, len(url_list))
+    else:
+        ran = range(len(url_list), 0, -1)
+    
+    for i in ran:
         try:
-            spider(url_list[-i])
+            if order:
+                category = i
+                spider(url_list[i])
+            else:
+                category = len(url_list) - i - 1
+                spider(url_list[-i-1])
         except:
             result.save('./{0}.xlsx'.format(output_num))
             print('已将该部分数据写入文件{0}.xlsx'.format(output_num))
