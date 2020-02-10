@@ -69,7 +69,7 @@ single = [
     'Total Annual Revenue',
     'Main Markets',
     'Country / Region',
-    'Ownership',  # TODO
+    'Ownership', 
     'Factory Size',
     'Factory Country/Region',
     'No. of Production Lines',
@@ -355,16 +355,12 @@ if __name__ == '__main__':
     if order:
         ran = range(start_category, len(url_list))
     else:
-        ran = range(len(url_list), 0, -1)
+        ran = range(len(url_list) - 1, -1, -1)
     
     for i in ran:
         try:
-            if order:
-                category = i
-                spider(url_list[i])
-            else:
-                category = len(url_list) - i - 1
-                spider(url_list[-i-1])
+            category = i
+            spider(url_list[i])
         except:
             result.save('./{0}.xlsx'.format(output_num))
             print('已将该部分数据写入文件{0}.xlsx'.format(output_num))
